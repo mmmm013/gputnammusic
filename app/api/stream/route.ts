@@ -1,6 +1,5 @@
 import { NextResponse } from 'next/server';
-import { createSignedUrl } from '@/utils/supabase/storage';
-
+import { createSignedUrl } from '../../../utils/supabase/storage';
 export async function GET(req: Request) {
   try {
     const urlObj = new URL(req.url);
