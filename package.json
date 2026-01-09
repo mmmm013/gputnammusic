@@ -1,0 +1,21 @@
+{
+  "name": "g-putnam-music",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "next lint"
+  },
+  "dependencies": {
+    "@stripe/stripe-js": "^2.1.0",
+    "@supabase/ssr": "^0.0.10",
+    "@supabase/supabase-js": "^2.38.4",
+    "lucide-react": "^0.292.0",
+    "next": "14.0.3",
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "stripe": "^14.5.0"
+  }
+}

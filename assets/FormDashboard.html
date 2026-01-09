@@ -1,0 +1,581 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>L Cole Farm Operations Center</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.7.1/chart.min.js"></script>
+    <!-- Chosen Palette: Calm Harmony (bg-gray-50, white, text-emerald-700) -->
+    <!-- Application Structure Plan: Designed a 4-page SPA (Dashboard, Field Map, Transition Plan, Action Items) using a tabbed navigation model. The Dashboard view acts as a "Command Center" synthesizing key data: KPIs, an interactive field map, and a transition timeline. This structure is more user-friendly than the linear reports, allowing owners to quickly check status (Dashboard) or dive into specific reference materials (other pages) to support decision-making. -->
+    <!-- Visualization & Content Choices:
+    - Report Info: Key Metrics (600+ acres, 35 head). Goal: Inform. Viz: HTML/Tailwind "Stat Cards". Interaction: None. Justification: Quick overview. Library: Tailwind.
+    - Report Info: Field Zones (North 80, East Flats, etc.). Goal: Organize/Interact. Viz: HTML/Tailwind clickable grid. Interaction: Click a field `<div>` to update a separate detail `<div>` with JS. Justification: Connects geography to data interactively. Library: Vanilla JS + Tailwind.
+    - Report Info: 10-Year Plan. Goal: Show Change. Viz: Horizontal button-based timeline. Interaction: Click button (e.g., "Year 1-2") to show/hide text sections. Justification: Condenses a long plan into interactive steps. Library: Vanilla JS.
+    - Report Info: Financial/Ecological Shift. Goal: Compare/Change. Viz: Bar Chart (Input Costs) & Line Chart (Soil OM%). Interaction: Tooltips. Justification: Visually proves the long-term benefit (costs swap, soil improves). Library: Chart.js (Canvas).
+    -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+        
+        .nav-link {
+            @apply px-3 py-2 text-sm font-medium text-gray-500 rounded-md hover:bg-gray-100 hover:text-gray-700;
+        }
+        .nav-link.active {
+            @apply bg-emerald-50 text-emerald-700;
+        }
+        .page-section {
+            display: none;
+        }
+        .page-section.active {
+            display: block;
+        }
+        .stat-card {
+            @apply bg-white p-6 rounded-lg shadow-md;
+        }
+        .stat-title {
+            @apply text-sm font-medium text-gray-500 truncate;
+        }
+        .stat-value {
+            @apply mt-1 text-3xl font-semibold text-emerald-700;
+        }
+        .field-box {
+            @apply bg-gray-100 p-4 rounded-lg cursor-pointer hover:bg-emerald-50 border-2 border-transparent hover:border-emerald-300;
+        }
+        .field-box.active {
+            @apply bg-emerald-100 border-emerald-400 ring-2 ring-emerald-300;
+        }
+        .timeline-button {
+            @apply px-4 py-2 text-sm font-medium text-gray-700 bg-white rounded-md shadow-sm hover:bg-gray-50 border border-gray-300;
+        }
+        .timeline-button.active {
+            @apply bg-emerald-700 text-white border-emerald-700;
+        }
+        .timeline-content {
+            display: none;
+        }
+        .timeline-content.active {
+            display: block;
+        }
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 600px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 350px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 400px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-gray-50 text-gray-800">
+
+    <div class="min-h-screen flex flex-col">
+        
+        <!-- Header -->
+        <header class="bg-white shadow-sm sticky top-0 z-10">
+            <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+                <div class="flex justify-between items-center h-16">
+                    <div class="flex-shrink-0 flex items-center">
+                        <span class="w-8 h-8 bg-emerald-600 rounded-full flex items-center justify-center text-white font-bold text-lg">L</span>
+                        <h1 class="ml-3 text-2xl font-bold text-gray-900">L Cole Farm Operations Center</h1>
+                    </div>
+                    <!-- Navigation -->
+                    <nav class="hidden sm:ml-6 sm:flex sm:space-x-4" id="desktop-nav">
+                        <a href="#dashboard" class="nav-link active" data-page="dashboard">Dashboard</a>
+                        <a href="#field-map" class="nav-link" data-page="field-map">Field Map</a>
+                        <a href="#transition-plan" class="nav-link" data-page="transition-plan">Transition Plan</a>
+                        <a href="#action-items" class="nav-link" data-page="action-items">Action Items</a>
+                    </nav>
+                </div>
+            </div>
+            <!-- Mobile Navigation -->
+            <nav class="sm:hidden border-t border-gray-200" id="mobile-nav">
+                <div class="px-2 pt-2 pb-3 space-y-1">
+                    <a href="#dashboard" class="block px-3 py-2 rounded-md text-base font-medium text-gray-700 bg-emerald-50" data-page="dashboard">Dashboard</a>
+                    <a href="#field-map" class="block px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:bg-gray-50" data-page="field-map">Field Map</a>
+                    <a href="#transition-plan" class="block px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:bg-gray-50" data-page="transition-plan">Transition Plan</a>
+                    <a href="#action-items" class="block px-3 py-2 rounded-md text-base font-medium text-gray-500 hover:bg-gray-50" data-page="action-items">Action Items</a>
+                </div>
+            </nav>
+        </header>
+
+        <!-- Main Content -->
+        <main class="flex-1">
+            
+            <!-- Dashboard Page -->
+            <section id="page-dashboard" class="page-section active">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <div class="max-w-3xl mx-auto mb-8">
+                        <h2 class="text-3xl font-bold text-gray-900">Dashboard</h2>
+                        <p class="mt-2 text-lg text-gray-600">Welcome to the L Cole Farm Operations Center. This dashboard provides a live overview of the regenerative transition, key assets, and strategic goals.</p>
+                    </div>
+
+                    <!-- Stats Grid -->
+                    <div class="grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                        <div class="stat-card">
+                            <p class="stat-title">Total Tillable Acres</p>
+                            <p class="stat-value">600+</p>
+                        </div>
+                        <div class="stat-card">
+                            <p class="stat-title">Acres in Transition (Pilot)</p>
+                            <p class="stat-value">125</p>
+                        </div>
+                        <div class="stat-card">
+                            <p class="stat-title">Target Cattle Herd (Yr 2)</p>
+                            <p class="stat-value">35-50 Head</p>
+                        </div>
+                        <div class="stat-card">
+                            <p class="stat-title">Baseline Soil OM (Avg)</p>
+                            <p class="stat-value">1.8%</p>
+                        </div>
+                    </div>
+
+                    <!-- Interactive Field Map -->
+                    <div class="mt-10 bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-xl font-semibold text-gray-900">Key Transition Zones</h3>
+                        <p class="text-gray-600 mb-4">Click a field zone to see details and transition focus.</p>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                            <div class="md:col-span-1 space-y-4">
+                                <div id="map-north-80" class="field-box active" data-field="north-80">
+                                    <h4 class="font-semibold">Zone A: North 80 (East Half)</h4>
+                                    <p class="text-sm text-gray-600">~38 Acres</p>
+                                </div>
+                                <div id="map-east-flats" class="field-box" data-field="east-flats">
+                                    <h4 class="font-semibold">Zone B: East Flats</h4>
+                                    <p class="text-sm text-gray-600">~50 Acres</p>
+                                </div>
+                                <div id="map-sw-terrace" class="field-box" data-field="sw-terrace">
+                                    <h4 class="font-semibold">Zone C: Southwest Terrace</h4>
+                                    <p class="text-sm text-gray-600">~37 Acres</p>
+                                </div>
+                            </div>
+                            <div id="field-detail-panel" class="md:col-span-2 bg-gray-50 p-6 rounded-lg border">
+                                <!-- JS will populate this -->
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Transition Timeline -->
+                    <div class="mt-10 bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-xl font-semibold text-gray-900">10-Year Transition Timeline</h3>
+                        <div class="flex space-x-2 my-4 border-b pb-4">
+                            <button class="timeline-button active" data-phase="phase1">Years 1-2: Foundation</button>
+                            <button class="timeline-button" data-phase="phase2">Years 3-5: Diversification</button>
+                            <button class="timeline-button" data-phase="phase3">Year 10: Mature Enterprise</button>
+                        </div>
+                        <div id="phase1" class="timeline-content active">
+                            <h4 class="text-lg font-semibold text-emerald-700">Phase 1: Foundation (Years 1-2)</h4>
+                            <p class="text-gray-600 mb-2">The immediate goal is to stop soil degradation and begin building a biological foundation using the assets you already have.</p>
+                            <ul class="list-disc list-inside space-y-1 text-gray-700">
+                                <li>**Shift to No-Till:** Cease recreational tillage. This immediately preserves soil structure and cuts fuel/labor costs.</li>
+                                <li>**Introduce Cover Crops:** After soybean harvest, drill a simple, hardy cover crop like **cereal rye** to break up compaction.</li>
+                                <li>**Integrate Cattle:** Use polywire fencing to graze cattle on the cover crops, reducing hay costs and adding valuable manure.</li>
+                                <li>**Establish Baseline:** Conduct baseline Soil Organic Matter (SOM) tests.</li>
+                            </ul>
+                        </div>
+                        <div id="phase2" class="timeline-content">
+                            <h4 class="text-lg font-semibold text-emerald-700">Phase 2: Diversification (Years 3-5)</h4>
+                            <p class="text-gray-600 mb-2">With the foundation set, we will diversify the crop rotation to break pest cycles and accelerate soil building.</p>
+                            <ul class="list-disc list-inside space-y-1 text-gray-700">
+                                <li>**Introduce a Third Crop:** Add a **winter small grain** (e.g., wheat) to break the corn-soybean cycle.</li>
+                                <li>**"Planting Green":** Plant soybeans directly into the living cereal rye cover crop to suppress weeds naturally.</li>
+                                <li>**Summer Grazing "Cocktails":** Plant a diverse summer cover crop mix (sorghum, cowpeas, radish) for summer grazing.</li>
+                                <li>**Outcome:** Expect significant improvement in soil structure and a 15-25% reduction in synthetic N needs for corn.</li>
+                            </ul>
+                        </div>
+                        <div id="phase3" class="timeline-content">
+                            <h4 class="text-lg font-semibold text-emerald-700">Phase 3: Mature Enterprise (Year 10)</h4>
+                            <p class="text-gray-600 mb-2">The farm is now a resilient, profitable, and largely self-sustaining ecosystem with multiple revenue streams.</p>
+                            <ul class="list-disc list-inside space-y-1 text-gray-700">
+                                <li>**Stacking Enterprises:** Launch new, synergistic ventures.</li>
+                                <li>**Direct-to-Consumer Beef:** Market premium 100% grass-fed/finished beef.</li>
+                                <li>**Cover Crop Seed Sales:** Sell seed to other local farmers.</li>
+                                <li>**Carbon Markets:** Sell carbon credits based on 10 years of documented SOM increases.</li>
+                                <li>**Outcome:** Soil Organic Matter increased by 1-2%+, transforming the "white soil" into a darker, more resilient loam.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Field Map Page -->
+            <section id="page-field-map" class="page-section">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <div class="max-w-3xl mx-auto mb-8">
+                        <h2 class="text-3xl font-bold text-gray-900">Field Map & Management Zones</h2>
+                        <p class="mt-2 text-lg text-gray-600">The 600+ tillable acres are organized into five primary management zones. This section details the role and characteristics of each field based on the Solar Scorecard and strategic plan.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                        <!-- JS will populate this grid -->
+                    </div>
+                </div>
+            </section>
+
+            <!-- Transition Plan Page -->
+            <section id="page-transition-plan" class="page-section">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <div class="max-w-3xl mx-auto mb-8">
+                        <h2 class="text-3xl font-bold text-gray-900">Regenerative Transition Plan</h2>
+                        <p class="mt-2 text-lg text-gray-600">This is the 10-year strategic roadmap for rebuilding soil health and diversifying revenue. The plan is broken into three manageable phases and focuses on swapping input costs for biological investments.</p>
+                    </div>
+
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+                        <div class="bg-white p-6 rounded-lg shadow-md">
+                            <h3 class="text-xl font-semibold text-gray-900 mb-4">Projected Input Cost Shift (Per Acre)</h3>
+                            <div class="chart-container">
+                                <canvas id="costShiftChart"></canvas>
+                            </div>
+                            <p class="text-sm text-gray-600 mt-4">This chart illustrates the core financial strategy: decreasing reliance on expensive chemical inputs by reinvesting a fraction of those savings into biological inputs (like multi-species cover crop seed) that build long-term farm resilience and profitability.</p>
+                        </div>
+                        <div class="bg-white p-6 rounded-lg shadow-md">
+                            <h3 class="text-xl font-semibold text-gray-900 mb-4">Soil Organic Matter (SOM) Projection</h3>
+                            <div class="chart-container">
+                                <canvas id="somChart"></canvas>
+                            </div>
+                            <p class="text-sm text-gray-600 mt-4">The primary goal and key performance indicator of the transition. Rebuilding SOM in the "White Soil" is critical for increasing water retention, improving nutrient cycling, and reducing erosion, making the farm more resilient to drought and weather volatility.</p>
+                        </div>
+                    </div>
+
+                    <div class="mt-10 bg-white p-6 rounded-lg shadow-md">
+                        <h3 class="text-xl font-semibold text-gray-900 mb-4">The Strategic Pivot: The "Food Hub" Model</h3>
+                        <div class="prose max-w-none text-gray-700">
+                            <p>This transition is not just ecological, it's economic. We are moving away from 100% commodity dependency.</p>
+                            <ul>
+                                <li><strong>The Inspiration:</strong> Spence Farms (Fairbury, IL) & the "Sustainable" documentary, which prove this model works in Illinois.</li>
+                                <li><strong>The Model:</strong> We will build an Aggregation & Distribution network. L Cole Farms will become a **Food Hub**, supplying our own products and those of neighboring farms.</li>
+                                <li><strong>The Market:</strong> Instead of selling only to the local elevator, we will sell premium, nutrient-dense products directly to restaurants, grocers, and families in the St. Louis and Greenfield metro-shed.</li>
+                                <li><strong>The Goal:</strong> To capture the full value of our product, build a community-facing brand, and create a resilient business that is not tied to volatile commodity prices.</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Action Items Page -->
+            <section id="page-action-items" class="page-section">
+                <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+                    <div class="max-w-3xl mx-auto mb-8">
+                        <h2 class="text-3xl font-bold text-gray-900">Action Items & Next Steps</h2>
+                        <p class="mt-2 text-lg text-gray-600">This section tracks our immediate next steps to move the regenerative transition from plan to reality. This is our "to-do" list for the next 90 days.</p>
+                    </div>
+
+                    <div class="bg-white p-6 rounded-lg shadow-md">
+                        <ul class="divide-y divide-gray-200">
+                            <li class="py-4">
+                                <div class="flex space-x-3">
+                                    <div class="flex-shrink-0">
+                                        <span class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-emerald-500">
+                                            <span class="font-medium text-white">1</span>
+                                        </span>
+                                    </div>
+                                    <div class="flex-1 space-y-1">
+                                        <div class="flex items-center justify-between">
+                                            <h3 class="text-lg font-semibold text-gray-900">Meeting with Marty Travis</h3>
+                                            <span class="inline-block bg-emerald-100 text-emerald-800 text-xs font-medium px-2.5 py-0.5 rounded-full">Dec 10, 2025</span>
+                                        </div>
+                                        <p class="text-gray-600">Strategic consultation with the lead of "Sustainable" to validate the "Food Hub" model for the St. Louis market and get specific agronomic advice for our "White Soil" challenge.</p>
+                                    </div>
+                                </div>
+                            </li>
+                            <li class="py-4">
+                                <div class="flex space-x-3">
+                                    <div class="flex-shrink-0">
+                                        <span class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-gray-400">
+                                            <span class="font-medium text-white">2</span>
+                                        </span>
+                                    </div>
+                                    <div class="flex-1 space-y-1">
+                                        <h3 class="text-lg font-semibold text-gray-900">Finalize 2026 Crop Plan</h3>
+                                        <p class="text-gray-600">Meet with the tenant operator to finalize the 2026 plan, locking in the pilot acres for no-till and ordering cereal rye cover crop seed.</p>
+                                    </div>
+                                </div>
+                            </li>
+                            <li class="py-4">
+                                <div class="flex space-x-3">
+                                    <div class="flex-shrink-0">
+                                        <span class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-gray-400">
+                                            <span class="font-medium text-white">3</span>
+                                        </span>
+                                    </div>
+                                    <div class="flex-1 space-y-1">
+                                        <h3 class="text-lg font-semibold text-gray-900">Owner Alignment</h3>
+                                        <p class="text-gray-600">Present the "Cultivating Legacy" deck to Lisa and the owners to ensure all stakeholders are aligned on the vision and the 10-year plan.</p>
+                                    </div>
+                                </div>
+                            </li>
+                             <li class="py-4">
+                                <div class="flex space-x-3">
+                                    <div class="flex-shrink-0">
+                                        <span class="inline-flex items-center justify-center h-8 w-8 rounded-full bg-gray-400">
+                                            <span class="font-medium text-white">4</span>
+                                        </span>
+                                    </div>
+                                    <div class="flex-1 space-y-1">
+                                        <h3 class="text-lg font-semibold text-gray-900">Create Transition Budget</h3>
+                                        <p class="text-gray-600">Update the `L_Cole_Farm_Financials_Working.xlsx` file with a new scenario showing the cost of cover crop seed vs. the projected savings in fertilizer and chemicals for Year 1.</p>
+                                    </div>
+                                </div>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // --- Data ---
+            const fieldData = {
+                "north-80": {
+                    title: "Zone A: North 80 (East Half)",
+                    acres: "~38 Acres",
+                    topography: "Flat / Slight Slope (2°)",
+                    access: "Near County Blacktop (Excellent logistics)",
+                    status: "Row Crop (Corn/Soy)",
+                    pilot: "Cover Crop Trial (Cereal Rye) & No-Till Soybeans"
+                },
+                "east-flats": {
+                    title: "Zone B: East Flats",
+                    acres: "~50 Acres",
+                    topography: "Very Flat (1°) - Risk of standing water?",
+                    access: "Near Substation",
+                    status: "Prime Production Zone",
+                    pilot: "Water Infiltration Test & High-Volume Grains"
+                },
+                "sw-terrace": {
+                    title: "Zone C: Southwest Terrace",
+                    acres: "~37 Acres",
+                    topography: "Sloped (4°) - Erosion Risk",
+                    access: "SSE Aspect",
+                    status: "Grazing Focus",
+                    pilot: "Convert to Perennial Pasture & Rotational Grazing (Cattle)"
+                }
+            };
+            
+            const allFieldsData = [
+                { name: "East Flats", acres: "~50", feature: "Very flat, high solar score (#1), prime for row crops.", role: "High-volume grain production (Wheat/Corn)." },
+                { name: "West Flats", acres: "~45", feature: "Excellent access, high visibility from Hwy.", role: "Demonstration plots (Roadside visibility)." },
+                { name: "Southwest Terrace", acres: "~37", feature: "Sloped (4°), erosion risk.", role: "Permanent pasture & rotational grazing (Cattle)." },
+                { name: "North 80 (East Half)", acres: "~38", feature: "Near county blacktop, minimal trees.", role: "Cover crop trials (Logistically easy to access)." },
+                { name: "East 40", acres: "~31", feature: "Proximity to infrastructure (bins/power).", role: "Specialized crops or staging area." }
+            ];
+
+            // --- Page Navigation ---
+            const navLinks = document.querySelectorAll('.nav-link, #mobile-nav a');
+            const pageSections = document.querySelectorAll('.page-section');
+            
+            function showPage(pageId) {
+                pageSections.forEach(section => {
+                    section.classList.toggle('active', section.id === `page-${pageId}`);
+                });
+                navLinks.forEach(link => {
+                    link.classList.toggle('active', link.dataset.page === pageId);
+                    if (link.closest('#mobile-nav')) {
+                         link.classList.toggle('bg-emerald-50', link.dataset.page === pageId);
+                         link.classList.toggle('text-gray-700', link.dataset.page === pageId);
+                         link.classList.toggle('text-gray-500', link.dataset.page !== pageId);
+                         link.classList.toggle('hover:bg-gray-50', link.dataset.page !== pageId);
+                    }
+                });
+                window.location.hash = pageId;
+
+                if (pageId === 'transition-plan') {
+                    initCharts();
+                }
+                if (pageId === 'field-map') {
+                    populateFieldMapPage();
+                }
+            }
+
+            navLinks.forEach(link => {
+                link.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    const pageId = e.currentTarget.dataset.page;
+                    showPage(pageId);
+                });
+            });
+
+            // Handle hash on initial load
+            const initialPage = window.location.hash.replace('#', '') || 'dashboard';
+            showPage(initialPage);
+
+            // --- Dashboard: Interactive Map ---
+            const fieldBoxes = document.querySelectorAll('.field-box');
+            const detailPanel = document.getElementById('field-detail-panel');
+
+            function updateDetailPanel(fieldId) {
+                const data = fieldData[fieldId];
+                if (!data) return;
+
+                detailPanel.innerHTML = `
+                    <h4 class="text-lg font-semibold text-gray-900">${data.title}</h4>
+                    <dl class="mt-2 grid grid-cols-1 gap-x-4 gap-y-2 sm:grid-cols-2">
+                        <div class="sm:col-span-1"><dt class="text-sm font-medium text-gray-500">Acres</dt><dd class="text-sm text-gray-900">${data.acres}</dd></div>
+                        <div class="sm:col-span-1"><dt class="text-sm font-medium text-gray-500">Topography</dt><dd class="text-sm text-gray-900">${data.topography}</dd></div>
+                        <div class="sm:col-span-1"><dt class="text-sm font-medium text-gray-500">Access</dt><dd class="text-sm text-gray-900">${data.access}</dd></div>
+                        <div class="sm:col-span-1"><dt class="text-sm font-medium text-gray-500">Status</dt><dd class="text-sm text-gray-900">${data.status}</dd></div>
+                        <div class="sm:col-span-2"><dt class="text-sm font-medium text-gray-500">Transition Pilot</dt><dd class="text-sm font-semibold text-emerald-700">${data.pilot}</dd></div>
+                    </dl>
+                `;
+                fieldBoxes.forEach(box => {
+                    box.classList.toggle('active', box.dataset.field === fieldId);
+                });
+            }
+
+            fieldBoxes.forEach(box => {
+                box.addEventListener('click', (e) => {
+                    updateDetailPanel(e.currentTarget.dataset.field);
+                });
+            });
+
+            updateDetailPanel('north-80');
+
+            // --- Dashboard: Timeline ---
+            const timelineButtons = document.querySelectorAll('.timeline-button');
+            const timelineContents = document.querySelectorAll('.timeline-content');
+
+            timelineButtons.forEach(button => {
+                button.addEventListener('click', (e) => {
+                    const phaseId = e.currentTarget.dataset.phase;
+                    
+                    timelineContents.forEach(content => {
+                        content.classList.toggle('active', content.id === phaseId);
+                    });
+
+                    timelineButtons.forEach(btn => {
+                        btn.classList.toggle('active', btn.dataset.phase === phaseId);
+                    });
+                });
+            });
+
+            // --- Field Map Page: Populate Grid ---
+            function populateFieldMapPage() {
+                const grid = document.querySelector('#page-field-map .grid');
+                if (grid.childElementCount > 0) return; 
+
+                allFieldsData.forEach(field => {
+                    const card = document.createElement('div');
+                    card.className = 'bg-white p-6 rounded-lg shadow-md';
+                    card.innerHTML = `
+                        <h3 class="text-xl font-semibold text-emerald-700">${field.name}</h3>
+                        <dl class="mt-3 grid grid-cols-1 gap-x-4 gap-y-2">
+                            <div><dt class="text-sm font-medium text-gray-500">Acres</dt><dd class="text-sm text-gray-900">${field.acres}</dd></div>
+                            <div><dt class="text-sm font-medium text-gray-500">Key Feature</dt><dd class="text-sm text-gray-900">${field.feature}</dd></div>
+                            <div><dt class="text-sm font-medium text-gray-500">Transition Role</dt><dd class="text-sm font-semibold text-gray-900">${field.role}</dd></div>
+                        </dl>
+                    `;
+                    grid.appendChild(card);
+                });
+            }
+
+            // --- Transition Plan: Charts ---
+            let costChart, somChart;
+            function initCharts() {
+                if (!costChart) {
+                    const costCtx = document.getElementById('costShiftChart').getContext('2d');
+                    costChart = new Chart(costCtx, {
+                        type: 'bar',
+                        data: {
+                            labels: ['Year 1 (Conventional)', 'Year 5 (Regenerative)'],
+                            datasets: [
+                                {
+                                    label: 'Chemicals / Synthetic Fertilizer',
+                                    data: [180, 45],
+                                    backgroundColor: 'rgb(209, 250, 229)',
+                                    borderColor: 'rgb(16, 185, 129)',
+                                    borderWidth: 1
+                                },
+                                {
+                                    label: 'Cover Crop Seed / Bio-Inputs',
+                                    data: [15, 60],
+                                    backgroundColor: 'rgb(254, 243, 199)',
+                                    borderColor: 'rgb(217, 119, 6)',
+                                    borderWidth: 1
+                                }
+                            ]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                x: { stacked: true },
+                                y: {
+                                    stacked: true,
+                                    title: { display: true, text: 'Cost per Acre ($)' }
+                                }
+                            },
+                            plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            let label = context.dataset.label || '';
+                                            if (label) {
+                                                label += ': ';
+                                            }
+                                            if (context.parsed.y !== null) {
+                                                label += new Intl.NumberFormat('en-US', { style: 'currency', currency: 'USD' }).format(context.parsed.y);
+                                            }
+                                            return label;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+
+                if (!somChart) {
+                    const somCtx = document.getElementById('somChart').getContext('2d');
+                    somChart = new Chart(somCtx, {
+                        type: 'line',
+                        data: {
+                            labels: ['Year 0', 'Year 2', 'Year 4', 'Year 6', 'Year 8', 'Year 10'],
+                            datasets: [{
+                                label: 'Soil Organic Matter %',
+                                data: [1.8, 2.1, 2.4, 2.8, 3.1, 3.5],
+                                fill: true,
+                                borderColor: 'rgb(6, 95, 70)',
+                                backgroundColor: 'rgba(6, 95, 70, 0.1)',
+                                tension: 0.1
+                            }]
+                        },
+                        options: {
+                            responsive: true,
+                            maintainAspectRatio: false,
+                            scales: {
+                                y: {
+                                    title: { display: true, text: 'SOM %' },
+                                    min: 1.5,
+                                    max: 4.0
+                                }
+                            },
+                             plugins: {
+                                tooltip: {
+                                    callbacks: {
+                                        label: function(context) {
+                                            return ` SOM: ${context.parsed.y}%`;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    });
+                }
+            }
+        });
+    </script>
+
+</body>
+</html>
