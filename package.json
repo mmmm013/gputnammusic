@@ -18,5 +18,11 @@
     "react-dom": "^18.2.0",
     "stripe": "^14.5.0",
     "@google/generative-ai": "^0.3.0"
-  }
+  },
+  "devDependencies": {
+    "typescript": "^5.3.3",
+    "@types/node": "^20.10.0",
+    "@types/react": "^18.2.42",
+    "@types/react-dom": "^18.2.16"
+  
 }
