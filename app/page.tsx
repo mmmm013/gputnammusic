@@ -1,193 +1,256 @@
 'use client';
-
-import { useState } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 
-interface Track {
-  id: string;
-  title: string;
-  artist_name: string;
-  moods: string[];
-  genres: string[];
-  energy_level: number;
-  description: string;
-}
+const MOODS = [
+  { id: 1, name: 'Relaxing', emoji: '🌊', color: 'from-blue-400 to-blue-600' },
+  { id: 2, name: 'Energetic', emoji: '⚡', color: 'from-yellow-400 to-orange-600' },
+  { id: 3, name: 'Happy', emoji: '😊', color: 'from-pink-400 to-rose-600' },
+  { id: 4, name: 'Melancholic', emoji: '🌙', color: 'from-indigo-400 to-purple-600' },
+  { id: 5, name: 'Focus', emoji: '🎯', color: 'from-green-400 to-emerald-600' },
+  { id: 6, name: 'Party', emoji: '🎉', color: 'from-red-400 to-pink-600' },
+  { id: 7, name: 'Peaceful', emoji: '🕊️', color: 'from-teal-400 to-cyan-600' },
+  { id: 8, name: 'Groovy', emoji: '🎵', color: 'from-purple-400 to-fuchsia-600' }
+];
 
 export default function Home() {
-  const [mood, setMood] = useState('');
-  const [tracks, setTracks] = useState<Track[]>([]);
-  const [loading, setLoading] = useState(false);
-  const [relatedMoods, setRelatedMoods] = useState<string[]>([]);
-  const [error, setError] = useState('');
+  const [selectedMood, setSelectedMood] = useState<string | null>(null);
+  const [chatOpen, setChatOpen] = useState(false);
+  const [chatMessages, setChatMessages] = useState<Array<{role: string; content: string}>>([]);
+  const [chatInput, setChatInput] = useState('');
+  const [isListening, setIsListening] = useState(false);
+  const [tracks, setTracks] = useState([]);
+  const recognitionRef = useRef<any>(null);
 
-  const handleSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!mood.trim()) return;
+  useEffect(() => {
+    // Initialize voice recognition
+    if (typeof window !== 'undefined' && 'webkitSpeechRecognition' in window) {
+      const SpeechRecognition = (window as any).webkitSpeechRecognition;
+      recognitionRef.current = new SpeechRecognition();
+      recognitionRef.current.continuous = false;
+      recognitionRef.current.interimResults = false;
+      
+      recognitionRef.current.onresult = (event: any) => {
+        const transcript = event.results[0][0].transcript;
+        handleVoiceCommand(transcript);
+      };
+    }
+  }, []);
 
-    setLoading(true);
-    setError('');
-
-    try {
-      const response = await fetch(`/api/moods?mood=${encodeURIComponent(mood)}`);
-      const data = await response.json();
-
-      if (response.ok) {
-        setTracks(data.tracks);
-        setRelatedMoods(data.relatedMoods || []);
-      } else {
-        setError(data.error || 'Failed to search');
-      }
-    } catch (err) {
-      setError('Network error occurred');
-    } finally {
-      setLoading(false);
+  const handleVoiceCommand = async (command: string) => {
+    setIsListening(false);
+    setChatMessages(prev => [...prev, { role: 'user', content: `🎤 ${command}` }]);
+    
+    // Check if command is a mood search
+    const moodCommand = MOODS.find(m => command.toLowerCase().includes(m.name.toLowerCase()));
+    if (moodCommand) {
+      await searchMood(moodCommand.name);
+    } else {
+      await sendBotMessage(command);
     }
   };
 
+  const startListening = () => {
+    if (recognitionRef.current) {
+      setIsListening(true);
+      recognitionRef.current.start();
+    }
+  };
+
+  const searchMood = async (mood: string) => {
+    setSelectedMood(mood);
+    try {
+      const res = await fetch(`/api/moods?mood=${encodeURIComponent(mood)}`);
+      const data = await res.json();
+      setTracks(data.tracks || []);
+      setChatMessages(prev => [...prev, {
+        role: 'bot',
+        content: `Found ${data.tracks?.length || 0} tracks for ${mood} mood! 🎵`
+      }]);
+    } catch (err) {
+      console.error(err);
+    }
+  };
+
+  const sendBotMessage = async (message: string) => {
+    try {
+      const res = await fetch('/api/chat', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message, history: chatMessages })
+      });
+      const data = await res.json();
+      setChatMessages(prev => [...prev, { role: 'bot', content: data.response }]);
+    } catch (err) {
+      setChatMessages(prev => [...prev, {
+        role: 'bot',
+        content: 'Hi! I\'m your music assistant. Try asking about moods or say "play relaxing music"!'
+      }]);
+    }
+  };
+
+  const handleChatSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!chatInput.trim()) return;
+    
+    setChatMessages(prev => [...prev, { role: 'user', content: chatInput }]);
+    await sendBotMessage(chatInput);
+    setChatInput('');
+  };
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-amber-100 via-amber-200 to-yellow-300">
-      {/* Navigation */}
-      <nav className="px-6 py-4">
+    <div className="min-h-screen bg-gradient-to-br from-amber-50 via-amber-100 to-yellow-200">
+      {/* Menu */}
+      <nav className="bg-amber-900/90 backdrop-blur-sm text-white px-6 py-4 sticky top-0 z-50">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
-          <div className="flex items-center space-x-8">
-            <Link href="/" className="text-sm hover:text-amber-800 transition">Dream the Stream</Link>
-            <Link href="#" className="text-sm hover:text-amber-800 transition">Who's stream-1-0</Link>
-            <Link href="#" className="text-sm hover:text-amber-800 transition">Archive</Link>
-            <Link href="#" className="text-sm hover:text-amber-800 transition">Links</Link>
-            <Link href="#" className="text-sm hover:text-amber-800 transition">Accolades</Link>
+          <h1 className="text-2xl font-bold">GPM 🎵</h1>
+          <div className="flex items-center gap-6">
+            <Link href="#moods" className="text-sm hover:text-amber-300">MOODs</Link>
+            <Link href="#playlist" className="text-sm hover:text-amber-300">Playlist</Link>
+            <button
+              onClick={() => setChatOpen(!chatOpen)}
+              className="bg-amber-600 px-4 py-2 rounded-lg text-sm font-medium hover:bg-amber-700"
+            >
+              💬 Chat AI
+            </button>
+            <button
+              onClick={startListening}
+              className={`px-4 py-2 rounded-lg text-sm font-medium ${
+                isListening ? 'bg-red-500 animate-pulse' : 'bg-green-600 hover:bg-green-700'
+              }`}
+            >
+              {isListening ? '🎤 Listening...' : '🎤 Voice'}
+            </button>
           </div>
-          <button className="bg-amber-600 hover:bg-amber-700 text-white px-6 py-2 rounded-md text-sm font-medium transition">
-            Dream the Stream
-          </button>
         </div>
       </nav>
 
-      {/* Main Content */}
-      <main className="max-w-7xl mx-auto px-6 py-16">
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-12 items-start">
-          {/* Left Column - Hero Text & Search */}
-          <div className="space-y-8">
-            <div>
-              <h1 className="text-6xl font-serif font-bold text-amber-800 mb-4">
-                Dream the Stream<br />
-                <span className="text-5xl">MOODs</span>
-              </h1>
-              <p className="text-gray-700 leading-relaxed">
-                Discover the revolutionary approach to music streaming that matches
-                your exact mood. Our innovative SHAPII platform lets you find the perfect
-                soundtrack for every moment.
-              </p>
-            </div>
-
-            {/* Mood Search Form */}
-            <form onSubmit={handleSearch} className="space-y-4">
-              <h2 className="text-2xl font-medium text-gray-800">
-                Find Your Perfect Mood
-              </h2>
-              <div className="flex gap-3">
-                <input
-                  type="text"
-                  value={mood}
-                  onChange={(e) => setMood(e.target.value)}
-                  placeholder="Enter any mood (e.g., relaxing, energetic...)"
-                  className="flex-1 px-4 py-3 border border-amber-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500 bg-white/80"
-                />
-              </div>
-              <button 
-                type="submit"
-                disabled={loading}
-                className="bg-amber-600 hover:bg-amber-700 disabled:bg-amber-400 text-white px-8 py-3 rounded-lg font-medium transition shadow-lg"
-              >
-                {loading ? 'Searching...' : 'Get Music Samples Now'}
-              </button>
-              {error && (
-                <p className="text-red-600 text-sm">{error}</p>
-              )}
-            </form>
-
-            {/* Related Moods */}
-            {relatedMoods.length > 0 && (
-              <div className="bg-white/60 p-4 rounded-lg">
-                <p className="text-sm font-medium text-gray-700 mb-2">Related moods:</p>
-                <div className="flex flex-wrap gap-2">
-                  {relatedMoods.map((m) => (
-                    <span
-                      key={m}
-                      className="px-3 py-1 bg-amber-200 text-amber-900 rounded-full text-sm"
-                    >
-                      {m}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* Search Results */}
-            {tracks.length > 0 && (
-              <div className="space-y-3">
-                <h3 className="text-xl font-semibold text-gray-800">
-                  {tracks.length} track{tracks.length !== 1 ? 's' : ''} found
-                </h3>
-                <div className="space-y-2 max-h-96 overflow-y-auto">
-                  {tracks.map((track) => (
-                    <div
-                      key={track.id}
-                      className="bg-white/80 p-4 rounded-lg hover:bg-white transition"
-                    >
-                      <div className="flex justify-between items-start">
-                        <div>
-                          <h4 className="font-semibold text-gray-800">{track.title}</h4>
-                          <p className="text-sm text-gray-600">{track.artist_name}</p>
-                          <p className="text-xs text-gray-500 mt-1">{track.description}</p>
-                        </div>
-                        <span className="text-xs bg-amber-200 px-2 py-1 rounded">
-                          Energy: {track.energy_level}/10
-                        </span>
-                      </div>
-                      <div className="flex gap-2 mt-2">
-                        {track.moods.slice(0, 3).map((m) => (
-                          <span
-                            key={m}
-                            className="text-xs px-2 py-1 bg-amber-100 text-amber-800 rounded"
-                          >
-                            {m}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-          </div>
-
-          {/* Right Column - Artist Image */}
-          <div className="relative">
-            <div className="aspect-square bg-gradient-to-br from-gray-800 to-gray-900 rounded-lg shadow-2xl overflow-hidden">
-              <div className="w-full h-full flex items-center justify-center text-white text-xl">
-                <span className="text-gray-400">Artist Photo</span>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* DISCO Playlist Section */}
-        <div className="mt-24 text-center space-y-6">
-          <h2 className="text-4xl font-serif font-bold text-amber-700">
-            Explore the DISCO Playlist
+      {/* Hero */}
+      <section className="py-20 px-6">
+        <div className="max-w-4xl mx-auto text-center">
+          <h2 className="text-7xl font-serif font-bold text-amber-900 mb-6">
+            Dream the Stream
           </h2>
-          <p className="max-w-3xl mx-auto text-gray-700 leading-relaxed">
-            Dive into our ever-growing library of over 100 tracks. With fun animated sounds that
-            gives you a listen, you can RUN KICKS and DJ sets. An eternal cornucopia of fun for
-            hot mixtape!
+          <p className="text-2xl text-amber-800 mb-8">
+            Discover music that matches your mood
           </p>
+          <p className="text-gray-700">Powered by AI • Voice Control Active</p>
         </div>
-      </main>
+      </section>
+
+      {/* 8 MOODs Grid */}
+      <section id="moods" className="py-16 px-6">
+        <div className="max-w-6xl mx-auto">
+          <h3 className="text-4xl font-bold text-amber-900 mb-12 text-center">
+            Choose Your MOOD
+          </h3>
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6">
+            {MOODS.map(mood => (
+              <button
+                key={mood.id}
+                onClick={() => searchMood(mood.name)}
+                className={`relative p-8 rounded-2xl bg-gradient-to-br ${mood.color} text-white shadow-xl hover:scale-105 transition-transform cursor-pointer group ${
+                  selectedMood === mood.name ? 'ring-4 ring-white' : ''
+                }`}
+              >
+                <div className="text-6xl mb-4">{mood.emoji}</div>
+                <div className="text-xl font-bold">{mood.name}</div>
+                <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 rounded-2xl transition"></div>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Featured Playlist */}
+      <section id="playlist" className="py-16 px-6 bg-white/50">
+        <div className="max-w-6xl mx-auto">
+          <h3 className="text-4xl font-bold text-amber-900 mb-8 text-center">
+            {selectedMood ? `${selectedMood} Tracks` : 'Featured DISCO Playlist'}
+          </h3>
+          {tracks.length > 0 ? (
+            <div className="grid gap-4">
+              {tracks.slice(0, 10).map((track: any) => (
+                <div key={track.id} className="bg-white p-6 rounded-xl shadow-lg hover:shadow-xl transition">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="text-xl font-bold text-gray-800">{track.title}</h4>
+                      <p className="text-gray-600">{track.artist_name}</p>
+                      <p className="text-sm text-gray-500 mt-2">{track.description}</p>
+                    </div>
+                    <span className="bg-amber-200 px-3 py-1 rounded-full text-sm font-medium">
+                      ⚡ {track.energy_level}/10
+                    </span>
+                  </div>
+                  <div className="flex gap-2 mt-4">
+                    {track.moods?.slice(0, 4).map((m: string) => (
+                      <span key={m} className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded">
+                        {m}
+                      </span>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="text-center text-gray-600 py-12">
+              <p className="text-lg">Select a MOOD above or use voice command to discover music!</p>
+              <p className="text-sm mt-2">Try saying: "Play relaxing music" or "Show me energetic tracks"</p>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* AI Chat Bot - 985 Message System */}
+      {chatOpen && (
+        <div className="fixed bottom-4 right-4 w-96 h-[600px] bg-white rounded-2xl shadow-2xl flex flex-col z-50">
+          <div className="bg-amber-900 text-white p-4 rounded-t-2xl flex justify-between items-center">
+            <h4 className="font-bold">🤖 GPM Assistant (985)</h4>
+            <button onClick={() => setChatOpen(false)} className="text-2xl hover:text-amber-300">&times;</button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-4 space-y-3">
+            {chatMessages.length === 0 && (
+              <div className="text-center text-gray-500 py-8">
+                <p>👋 Hi! I'm your music assistant.</p>
+                <p className="text-sm mt-2">Ask me about moods or use voice!</p>
+              </div>
+            )}
+            {chatMessages.map((msg, i) => (
+              <div key={i} className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                <div className={`max-w-[80%] p-3 rounded-lg ${
+                  msg.role === 'user' 
+                    ? 'bg-amber-600 text-white rounded-br-none' 
+                    : 'bg-gray-200 text-gray-800 rounded-bl-none'
+                }`}>
+                  {msg.content}
+                </div>
+              </div>
+            ))}
+          </div>
+          <form onSubmit={handleChatSubmit} className="p-4 border-t">
+            <div className="flex gap-2">
+              <input
+                type="text"
+                value={chatInput}
+                onChange={(e) => setChatInput(e.target.value)}
+                placeholder="Ask about music..."
+                className="flex-1 px-4 py-2 border rounded-lg focus:outline-none focus:ring-2 focus:ring-amber-500"
+              />
+              <button
+                type="submit"
+                className="bg-amber-600 text-white px-6 py-2 rounded-lg hover:bg-amber-700 font-medium"
+              >
+                Send
+              </button>
+            </div>
+          </form>
+        </div>
+      )}
 
       {/* Footer */}
-      <footer className="mt-24 py-8 border-t border-amber-300">
-        <div className="max-w-7xl mx-auto px-6 text-center text-sm text-gray-600">
-          <p>&copy; 2026 G Putnam Music. All rights reserved.</p>
+      <footer className="bg-amber-900 text-white py-8 mt-20">
+        <div className="max-w-6xl mx-auto px-6 text-center">
+          <p>&copy; 2026 G Putnam Music. Voice Control Active 🎤</p>
         </div>
       </footer>
     </div>
