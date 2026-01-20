@@ -11,7 +11,8 @@ export const BRAND_IDENTITY = {
 export interface DiscoPlaylist {
   id: string;
   title: string;
-  tags: string[]; 
+  tags: string[];
+    audioUrl?: string; 
 }
 
 // 3. THE AUTOMATED PLAYLIST DATABASE
@@ -21,6 +22,7 @@ export const PLAYLIST_DATABASE: DiscoPlaylist[] = [
     id: "25576490",
     title: "Busting Out",
     tags: ["rock", "energy", "intro"]
+        audioUrl: "https://YOUR_SUPABASE_URL/storage/v1/object/public/music/busting-out.mp3",
   },
   {
     id: "24894395", // VERIFIED: Rockin Cowboys

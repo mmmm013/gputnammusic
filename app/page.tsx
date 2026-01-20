@@ -3,14 +3,14 @@ import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 
 const MOODS = [
-  { id: 1, name: 'Relaxing', emoji: '🌊', color: 'from-blue-400 to-blue-600' },
-  { id: 2, name: 'Energetic', emoji: '⚡', color: 'from-yellow-400 to-orange-600' },
-  { id: 3, name: 'Happy', emoji: '😊', color: 'from-pink-400 to-rose-600' },
-  { id: 4, name: 'Melancholic', emoji: '🌙', color: 'from-indigo-400 to-purple-600' },
-  { id: 5, name: 'Focus', emoji: '🎯', color: 'from-green-400 to-emerald-600' },
-  { id: 6, name: 'Party', emoji: '🎉', color: 'from-red-400 to-pink-600' },
-  { id: 7, name: 'Peaceful', emoji: '🕊️', color: 'from-teal-400 to-cyan-600' },
-  { id: 8, name: 'Groovy', emoji: '🎵', color: 'from-purple-400 to-fuchsia-600' }
+  { id: 1, name: 'Melancholy', emoji: '🌙', color: 'from-indigo-400 to-purple-600' },
+  { id: 2, name: 'Ethereal', emoji: '✨', color: 'from-purple-400 to-pink-400' },
+  { id: 3, name: 'Focus', emoji: '🧠', color: 'from-green-400 to-emerald-600' },
+  { id: 4, name: 'Uplifting', emoji: '☀️', color: 'from-yellow-400 to-orange-400' },
+  { id: 5, name: 'High Energy', emoji: '⚡', color: 'from-red-400 to-orange-600' },
+  { id: 6, name: 'Late Night', emoji: '🌃', color: 'from-indigo-600 to-purple-900' },
+  { id: 7, name: 'Sunrise', emoji: '🌅', color: 'from-yellow-300 to-orange-500' },
+  { id: 8, name: 'Bot', emoji: '🤖', color: 'from-cyan-400 to-blue-500' }
 ];
 
 export default function Home() {
